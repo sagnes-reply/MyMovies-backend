@@ -98,11 +98,11 @@ def user_profile():
         }
         return jsonify(response_data)
 
-@app.post("/get_user_profile")
+@app.route("/get_user_profile", methods = ["GET"])
 def get_user_profile():
     print("----------------------------")
     try:
-        username = request.get_json()['username']
+        username = request.headers.get('username')
         query = "select aes_decrypt(password,'my_key'), email, name, surname, genres from user where username = '"+username+"';"
 
         connection = dbManager.create_db_connection("localhost","root","","mymovies")
