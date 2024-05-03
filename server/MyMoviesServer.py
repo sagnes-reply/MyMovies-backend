@@ -102,7 +102,7 @@ def user_profile():
 def get_user_profile():
     print("----------------------------")
     try:
-        username = request.headers.get('username')
+        username = request.args.get("username")
         query = "select aes_decrypt(password,'my_key'), email, name, surname, genres from user where username = '"+username+"';"
 
         connection = dbManager.create_db_connection("localhost","root","","mymovies")
@@ -170,13 +170,12 @@ def change_password():
         }
         return jsonify(response_data)
 
+app.run(host="0.0.0.0", port="5001")
 
 connection = dbManager.create_db_connection("localhost","root","","mymovies")
 #query = "delete from user"
 #dbManager.execute_query(connection, query)
 print(dbManager.read_query(connection, "select username, aes_decrypt(password,'my_key'), name, surname, email, genres from user;"))
-
-app.run(host="0.0.0.0", port="5001")
 
 
         
