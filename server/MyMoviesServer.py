@@ -1,8 +1,10 @@
+import base64
+import json
 from flask import request, Flask, jsonify
 from DbManager import DbManager
 import mysql.connector
 from mysql.connector import Error
-from sqlitedict import SqliteDict
+import requests
 
 cache_file="cache.sqlite3"
 app = Flask(__name__)
@@ -69,7 +71,6 @@ def login():
         
 @app.post("/user_profile")
 def user_profile():
-    print()
     try:
         profile = request.get_json()
         username = profile['username']
@@ -82,7 +83,7 @@ def user_profile():
         connection = dbManager.create_db_connection("localhost","root","","mymovies")
 
         query = "update user set password = aes_encrypt('"+password+"','my_key'), email ='"+email+"', name ='"+name+"', surname ='"+surname+"', genres = '"+genres+"' where username = '"+username+"';"
-        print(query)
+
         dbManager.execute_query(connection, query)
         response_data = {
             'message': 'OK'
@@ -137,7 +138,6 @@ def get_user_profile():
 @app.post("/update_password")
 def change_password():
     try:
-        print(request.get_json())
         username = request.get_json()['username']
         password = request.get_json()['password']
         new_password = request.get_json()['newPassword']
@@ -147,7 +147,6 @@ def change_password():
         bytearray_pwd = dbManager.read_query(connection, query)
     
         pwd = bytearray_pwd[0][0].decode("utf-8")
-        print(pwd+"----"+password)
         if pwd != password:
             response_data = {
                 'message': 'INCORRECT PWD'
@@ -169,8 +168,81 @@ def change_password():
             'message': 'ERROR'
         }
         return jsonify(response_data)
+    
+@app.route("/get_movies", methods = ["GET"])
+def get_movies():
+    url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&sort_by=popularity.desc"
+
+    headers = {
+        "accept": "application/json",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
+    }
+    response = requests.get(url, headers=headers)
+    movies = create_movie_response(response.json()['results'])
+
+    # Serializza l'array di film in JSON
+    return jsonify(movies)
+
+def create_movie_response(raw_response):
+    movies = []
+    for movie in raw_response:
+        movie_dict = dict()
+        movie_dict['title'] = movie['title']
+        movie_dict['id'] = movie['id']
+        movie_dict['overview'] = movie['overview']
+        movie_dict['genres'] = convert_genre_id(movie['genre_ids'])
+        movie_dict['releaseDate'] = convert_date(movie['release_date'])
+        movie_dict['poster'] = get_poster(movie['poster_path'])
+        movies.append(movie_dict)
+    return movies
+
+@app.route("/get_genres", methods = ["GET"])
+def get_genres():
+    url = "https://api.themoviedb.org/3/genre/movie/list?language=en"
+
+    headers = {
+        "accept": "application/json",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
+    }
+
+    response = requests.get(url, headers=headers)
+    genres = response.json()['genres']
+    genres_strings = []
+    for genre in genres:
+        genres_strings.append(genre['id'])
+    return genres_strings
+
+def convert_genre_id(ids):
+    url = "https://api.themoviedb.org/3/genre/movie/list?language=en"
+
+    headers = {
+        "accept": "application/json",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
+    }
+
+    response = requests.get(url, headers=headers)
+    genres = response.json()['genres']
+
+    genres_string_array = []
+    for movie_id in ids:
+        for genre in genres:
+            if movie_id == genre['id']:
+                genres_string_array.append(genre['name'])
+
+    return genres_string_array
+
+def convert_date(date = ""):
+    date = date.split("-")
+    new_date = date[2]+"-"+date[1]+"-"+date[0]
+    return new_date
+
+def get_poster(poster_url):
+    url = "https://image.tmdb.org/t/p/w500" + poster_url
+    response = requests.get(url) 
+    return base64.b64encode(response.content).decode('utf-8')
 
 app.run(host="0.0.0.0", port="5001")
+
 
 connection = dbManager.create_db_connection("localhost","root","","mymovies")
 #query = "delete from user"
