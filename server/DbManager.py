@@ -60,8 +60,9 @@ class DbManager:
     
 
 
-#db = DbManager()
-# connection = db.create_server_connection("localhost", "root", "")
+db = DbManager()
+#connection = db.create_server_connection("localhost", "root", "")
+
 # query = "create database if not exists mymovies"
 # db.create_database(connection, query)
 # # ------ creating tables ----------
@@ -72,46 +73,17 @@ class DbManager:
 # );
 # """
 
-# movie_table_query = """
-# create table if not exists movie (
-#     name varchar(40) primary key,
-#     genre varchar(20),
-#     author varchar(40),
-#     duration int
-# );
-# """
-
-# user_movie_table_query = """
-# create table if not exists user_movie (
-#     user varchar(20) references user(username),
-#     movie varchar(40) references movie(name),
-#     primary key (user, movie)
-# );
-# """
-
-# db.execute_query(connection, user_table_query)
-# db.execute_query(connection, movie_table_query)
-# db.execute_query(connection, user_movie_table_query)
-
-#db.execute_query(connection, """
-#                                alter table user 
-#                                add email varchar(40);
-#                                add name varchar(20);
-#                                add surname varchar(20);
-#                                """)
-
-#db.execute_query(connection=connection, query= "insert into user values ('sabrinaa', aes_encrypt('12345','my_key'));")
-# print(db.read_query(connection, "delete from user"))
-# res = (db.read_query(connection, "select aes_decrypt(password,'my_key') from user where username = 'Pppp';"))
-# print(res)
-# #print(res[0][0].decode("utf-8"))
-#db.execute_query(connection, """
-#                                alter table user 
-#                                add genres varchar(100);
-#                                """)
-
-#connection = db.create_db_connection("localhost","root","","mymovies")
+connection = db.create_db_connection("localhost","root","","mymovies")
 #print(db.read_query(connection, "select * from user;"))
 #db.execute_query(connection, "insert into user values ('Sabrina', aes_encrypt('1234','my_key'), 'sabrina@gmail.it', 'Sabrina', 'Agnes', 'Comedy,');")
 #res = db.read_query(connection, query = "select aes_decrypt(password,'my_key'), email, name, surname, genres from user where username = 'Sabrina';")
 #print(res[0][0])
+
+#query = """
+#    create table if not exists user_favourites (
+#    user varchar(20) references user(username),
+#    movie_id int(15),
+#    primary key (user, movie_id)
+# );
+# """
+#db.execute_query(connection, query)

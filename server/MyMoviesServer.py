@@ -171,6 +171,8 @@ def change_password():
     
 @app.route("/get_movies", methods = ["GET"])
 def get_movies():
+    print("------- GET MOVIES ---------")
+    username = request.args.get("username")
     url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&sort_by=popularity.desc"
 
     headers = {
@@ -178,12 +180,13 @@ def get_movies():
         "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
     }
     response = requests.get(url, headers=headers)
-    movies = create_movie_response(response.json()['results'])
+    array_id = get_favourites(username)
+    movies = create_movie_response(response.json()['results'], array_id)
 
     # Serializza l'array di film in JSON
     return jsonify(movies)
 
-def create_movie_response(raw_response):
+def create_movie_response(raw_response, array_id):
     movies = []
     for movie in raw_response:
         movie_dict = dict()
@@ -193,6 +196,7 @@ def create_movie_response(raw_response):
         movie_dict['genres'] = convert_genre_id(movie['genre_ids'])
         movie_dict['releaseDate'] = convert_date(movie['release_date'])
         movie_dict['poster'] = get_poster(movie['poster_path'])
+        movie_dict['favourite'] = check_favourite(movie['id'], array_id)
         movies.append(movie_dict)
     return movies
 
@@ -209,7 +213,8 @@ def get_genres():
     genres = response.json()['genres']
     genres_strings = []
     for genre in genres:
-        genres_strings.append(genre['id'])
+        genres_strings.append(genre['name'])
+    print(genres_strings)
     return genres_strings
 
 def convert_genre_id(ids):
@@ -238,16 +243,55 @@ def convert_date(date = ""):
 
 def get_poster(poster_url):
     url = "https://image.tmdb.org/t/p/w500" + poster_url
-    response = requests.get(url) 
-    return base64.b64encode(response.content).decode('utf-8')
+    
+    return url
+
+def get_favourites(username):
+    connection = dbManager.create_db_connection("localhost","root","","mymovies")
+    query = "select movie_id from user_favourites where user='"+username+"'"
+    res = dbManager.read_query(connection, query) #[(693134],), (934632,), (940721,)]
+    array_id = [tupla[0] for tupla in res] 
+    return array_id
+
+def check_favourite(movie_id, array_id):
+    if movie_id in array_id:
+        return True
+    else:
+        return False
+
+
+@app.post("/update_favourite_movies")
+def update_favourite_movies():
+    try:
+        username = request.get_json()['username']
+        movie_id = str(request.get_json()['id'])
+        
+        query = "select * from user_favourites where user = '"+username+"' and movie_id = '"+movie_id+"'"
+        connection = dbManager.create_db_connection("localhost","root","","mymovies")
+        res = dbManager.read_query(connection, query)
+        #se non trovo righe con username,movie_id inserisco il movie_id preferito per username
+        if len(res) == 0:
+            query = "insert into user_favourites values('"+username+"','"+movie_id+"');"
+            dbManager.execute_query(connection, query)
+            return jsonify(True), 200
+        #se la trovo vuol dire che lo user ha rimosso quel film dai preferiti quando arrivo a questo punto
+        else:
+            query = "delete from user_favourites where user = '"+username+"' and movie_id = '"+movie_id+"'"
+            dbManager.execute_query(connection, query)
+            return jsonify(False), 200
+    
+    except Error as err:
+        print("error in updeting user favourite movies: ", err)
+        return jsonify(False), 500
 
 app.run(host="0.0.0.0", port="5001")
 
 
 connection = dbManager.create_db_connection("localhost","root","","mymovies")
-#query = "delete from user"
+#query = "delete from user_favourites"
 #dbManager.execute_query(connection, query)
-print(dbManager.read_query(connection, "select username, aes_decrypt(password,'my_key'), name, surname, email, genres from user;"))
+#print(dbManager.read_query(connection, "select username, aes_decrypt(password,'my_key'), name, surname, email, genres from user;"))
+print(dbManager.read_query(connection, "select * from user_favourites;"))
 
 
         
