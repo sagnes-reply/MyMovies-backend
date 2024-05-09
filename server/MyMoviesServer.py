@@ -110,7 +110,6 @@ def get_user_profile():
 
         profile = dbManager.read_query(connection, query)
         print(profile)
-        password = profile[0][0].decode("utf-8")
         email = profile[0][1]
         name = profile[0][2]
         surname = profile[0][3]
@@ -182,7 +181,6 @@ def get_movies():
     response = requests.get(url, headers=headers)
     array_id = get_favourites(username)
     movies = create_movie_response(response.json()['results'], array_id)
-
     # Serializza l'array di film in JSON
     return jsonify(movies)
 
@@ -228,13 +226,14 @@ def convert_genre_id(ids):
     response = requests.get(url, headers=headers)
     genres = response.json()['genres']
 
-    genres_string_array = []
+    genres_string = ""
     for movie_id in ids:
         for genre in genres:
             if movie_id == genre['id']:
-                genres_string_array.append(genre['name'])
-
-    return genres_string_array
+                genres_string = genres_string + genre['name']+" - "
+    if len(genres_string) >= 2:
+        genres_string = genres_string[:-2]
+    return genres_string
 
 def convert_date(date = ""):
     date = date.split("-")
@@ -265,7 +264,7 @@ def update_favourite_movies():
     try:
         username = request.get_json()['username']
         movie_id = str(request.get_json()['id'])
-        
+        print("-------- UPDATE FAVOURITES ---------")
         query = "select * from user_favourites where user = '"+username+"' and movie_id = '"+movie_id+"'"
         connection = dbManager.create_db_connection("localhost","root","","mymovies")
         res = dbManager.read_query(connection, query)
@@ -279,7 +278,8 @@ def update_favourite_movies():
             query = "delete from user_favourites where user = '"+username+"' and movie_id = '"+movie_id+"'"
             dbManager.execute_query(connection, query)
             return jsonify(False), 200
-    
+       
+        
     except Error as err:
         print("error in updeting user favourite movies: ", err)
         return jsonify(False), 500
