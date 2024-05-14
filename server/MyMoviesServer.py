@@ -172,7 +172,8 @@ def change_password():
 def get_movies():
     print("------- GET MOVIES ---------")
     username = request.args.get("username")
-    url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&sort_by=popularity.desc"
+    lang = request.args.get("lang")
+    url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language="+lang+"&page=1&sort_by=popularity.desc"
 
     headers = {
         "accept": "application/json",
@@ -225,7 +226,8 @@ def get_genres():
     genres = response.json()['genres']
   
     for genre in genres:
-        genres_strings.append(genre['name'])
+        if genre['name'] not in genres_strings:
+            genres_strings.append(genre['name'])
 
     return genres_strings
 
@@ -313,7 +315,7 @@ def get_tv_shows():
         "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
     }
     response = requests.get(url, headers=headers)
-    array_id = []#get_favourites(username)
+    array_id = get_favourites(username)
     shows = create_tv_shows_response(response.json()['results'], array_id)
     # Serializza l'array di film in JSON
     return jsonify(shows)
@@ -327,7 +329,7 @@ def create_tv_shows_response(raw_response, array_id):
         show_dict['overview'] = show['overview']
         show_dict['genres'] = (show['genre_ids'])
         show_dict['poster'] = get_poster(show['poster_path'])
-        show_dict['favourite'] = False #check_favourite(movie['id'], array_id)
+        show_dict['favourite'] = check_favourite(show['id'], array_id)
         shows.append(show_dict)
     return shows
 
