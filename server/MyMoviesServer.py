@@ -173,20 +173,38 @@ def get_movies():
     print("------- GET MOVIES ---------")
     username = request.args.get("username")
     lang = request.args.get("lang")
-    url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language="+lang+"&page=1&sort_by=popularity.desc"
+    page = request.args.get("page")
 
-    headers = {
-        "accept": "application/json",
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
-    }
-    response = requests.get(url, headers=headers)
     array_id = get_favourites(username)
-    movies = create_movie_response(response.json()['results'], array_id)
-    # Serializza l'array di film in JSON
+    favourites_left = len(array_id)
+    favourite_request = bool(request.args.get("favouriteRequest"))
+    movies = []
+    for i in range(1,int(page)+1):
+        url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
+
+        headers = {
+            "accept": "application/json",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
+        }
+        response = requests.get(url, headers=headers)
+       
+        movies, favourites_left = create_movie_response(movies,response.json()['results'], array_id, favourite_request, favourites_left)
+
+    while favourites_left != 0 and favourite_request:
+        i += 1
+        url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
+
+        headers = {
+            "accept": "application/json",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
+        }
+        response = requests.get(url, headers=headers)
+        array_id = get_favourites(username)
+        movies, favourites_left = create_movie_response(movies,response.json()['results'], array_id, favourite_request, favourites_left)
+    
     return jsonify(movies)
 
-def create_movie_response(raw_response, array_id):
-    movies = []
+def create_movie_response(movies,raw_response, array_id, favourite_request, favourites_left):
     for movie in raw_response:
         movie_dict = dict()
         movie_dict['title'] = movie['title']
@@ -195,9 +213,12 @@ def create_movie_response(raw_response, array_id):
         movie_dict['genres'] = (movie['genre_ids'])
         movie_dict['releaseDate'] = convert_date(movie['release_date'])
         movie_dict['poster'] = get_poster(movie['poster_path'])
+        movie_dict['type'] = "movie"
         movie_dict['favourite'] = check_favourite(movie['id'], array_id)
+        if check_favourite(movie['id'], array_id) and favourite_request:
+            favourites_left -= 1
         movies.append(movie_dict)
-    return movies
+    return movies, favourites_left
 
 @app.route("/get_genres", methods = ["GET"])
 def get_genres():
@@ -262,9 +283,12 @@ def get_poster(poster_url):
     
     return url
 
-def get_favourites(username):
+def get_favourites(username, movies = True):
     connection = dbManager.create_db_connection("localhost","root","","mymovies")
-    query = "select movie_id from user_favourites where user='"+username+"'"
+    if movies:
+        query = "select movie_id from user_favourites where user='"+username+"'"
+    else:
+        query = "select tvshow_id from user_favourite_tvshows where user='"+username+"'"
     res = dbManager.read_query(connection, query) #[(693134],), (934632,), (940721,)]
     array_id = [tupla[0] for tupla in res] 
     return array_id
@@ -279,6 +303,7 @@ def check_favourite(movie_id, array_id):
 @app.post("/update_favourite_movies")
 def update_favourite_movies():
     try:
+        print(request.get_json())
         username = request.get_json()['username']
         movie_id = str(request.get_json()['id'])
         print("-------- UPDATE FAVOURITES ---------")
@@ -289,11 +314,13 @@ def update_favourite_movies():
         if len(res) == 0:
             query = "insert into user_favourites values('"+username+"','"+movie_id+"');"
             dbManager.execute_query(connection, query)
+            print(dbManager.read_query(connection, "select * from user_favourites"))
             return jsonify(True), 200
         #se la trovo vuol dire che lo user ha rimosso quel film dai preferiti quando arrivo a questo punto
         else:
             query = "delete from user_favourites where user = '"+username+"' and movie_id = '"+movie_id+"'"
             dbManager.execute_query(connection, query)
+            print(dbManager.read_query(connection, "select * from user_favourites"))
             return jsonify(False), 200
        
         
@@ -308,31 +335,80 @@ def get_tv_shows():
     print("------- GET TV SHOWS ---------")
     username = request.args.get("username")
     lang = request.args.get("lang")
-    url = "https://api.themoviedb.org/3/discover/tv?include_adult=false&include_null_first_air_dates=false&language="+lang+"&page=1&sort_by=popularity.desc"
+    page = request.args.get("page")
+    
+    array_id = get_favourites(username, False)
+    favourites_left = len(array_id)
+    favourite_request = bool(request.args.get("favouriteRequest"))
+    shows = []
+    for i in range(1,int(page)+1):
+        url = "https://api.themoviedb.org/3/discover/tv?include_adult=false&include_null_first_air_dates=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
 
-    headers = {
-        "accept": "application/json",
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
-    }
-    response = requests.get(url, headers=headers)
-    array_id = get_favourites(username)
-    shows = create_tv_shows_response(response.json()['results'], array_id)
-    # Serializza l'array di film in JSON
+        headers = {
+            "accept": "application/json",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
+        }
+        response = requests.get(url, headers=headers)
+        print("--------", favourites_left)
+        shows, favourites_left = create_tv_shows_response(shows,response.json()['results'], array_id, favourite_request, favourites_left)
+        # Serializza l'array di film in JSON
+    while favourites_left != 0 and favourite_request:
+        i += 1
+        url = "https://api.themoviedb.org/3/discover/tv?include_adult=false&include_null_first_air_dates=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
+
+        headers = {
+            "accept": "application/json",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
+        }
+        response = requests.get(url, headers=headers)
+        shows, favourites_left = create_tv_shows_response(shows,response.json()['results'], array_id, favourite_request, favourites_left)
+        print(favourites_left)
     return jsonify(shows)
 
-def create_tv_shows_response(raw_response, array_id):
-    shows = []
+def create_tv_shows_response(shows, raw_response, array_id, favourite_request, favourites_left):
     for show in raw_response:
         show_dict = dict()
         show_dict['title'] = show['original_name']
         show_dict['id'] = show['id']
         show_dict['overview'] = show['overview']
         show_dict['genres'] = (show['genre_ids'])
-        show_dict['poster'] = get_poster(show['poster_path'])
+        if show['poster_path'] != None:
+            show_dict['poster'] = get_poster(show['poster_path'])
+        show_dict['type'] = "tvShow"
         show_dict['favourite'] = check_favourite(show['id'], array_id)
+        if check_favourite(show['id'], array_id) and favourite_request:
+            favourites_left -= 1
         shows.append(show_dict)
-    return shows
+    return shows, favourites_left
 
+@app.post("/update_favourite_tvshows")
+def update_favourite_tvshows():
+    try:
+        username = request.get_json()['username']
+        tvshow_id = str(request.get_json()['id'])
+        print("-------- UPDATE FAVOURITES ---------")
+        query = "select * from user_favourite_tvshows where user = '"+username+"' and tvshow_id = '"+tvshow_id+"'"
+        connection = dbManager.create_db_connection("localhost","root","","mymovies")
+        res = dbManager.read_query(connection, query)
+        #se non trovo righe con username,movie_id inserisco il movie_id preferito per username
+        if len(res) == 0:
+            query = "insert into user_favourite_tvshows values('"+username+"','"+tvshow_id+"');"
+            dbManager.execute_query(connection, query)
+            query = "select * from user_favourite_tvshows"
+            print(dbManager.read_query(connection, query))
+            return jsonify(True), 200
+        #se la trovo vuol dire che lo user ha rimosso quel film dai preferiti quando arrivo a questo punto
+        else:
+            query = "delete from user_favourite_tvshows where user = '"+username+"' and tvshow_id = '"+tvshow_id+"'"
+            dbManager.execute_query(connection, query)
+            query = "select * from user_favourite_tvshows"
+            print(dbManager.read_query(connection, query))
+            return jsonify(False), 200
+    
+    except Error as err:
+        print("error in updating user favourite movies: ", err)
+        return jsonify(False), 500
+        
 @app.route("/get_tv_shows_genres", methods = ["GET"])
 def get_tv_shows_genres():
     url = "https://api.themoviedb.org/3/genre/tv/list?language=en"
