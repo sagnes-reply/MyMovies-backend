@@ -79,11 +79,14 @@ connection = db.create_db_connection("localhost","root","","mymovies")
 #res = db.read_query(connection, query = "select aes_decrypt(password,'my_key'), email, name, surname, genres from user where username = 'Sabrina';")
 #print(res[0][0])
 
-query = """
-    create table if not exists user_favourite_tvshows (
-    user varchar(20) references user(username),
-    tvshow_id int(15),
-    primary key (user, tvshow_id)
- );
- """
+#query = """
+#    create table if not exists user_favourite_tvshows (
+#    user varchar(20) references user(username),
+#    tvshow_id int(15),
+#    primary key (user, tvshow_id)
+# );
+# """
+
+query = "delete from user_favourite_tvshows"
 db.execute_query(connection, query)
+#db.read_query(connection, "select * from user")
