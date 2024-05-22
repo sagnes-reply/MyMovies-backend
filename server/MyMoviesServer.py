@@ -221,6 +221,7 @@ def create_movie_response(movies,raw_response, array_id, favourite_request, favo
         movie_dict['poster'] = get_poster(movie['poster_path'])
         movie_dict['type'] = "movie"
         movie_dict['favourite'] = check_favourite(movie['id'], array_id)
+        movie_dict['vote'] = movie['vote_average']
         if check_favourite(movie['id'], array_id) and favourite_request:
             favourites_left -= 1
         movies.append(movie_dict)
@@ -388,6 +389,7 @@ def create_tv_shows_response(shows, raw_response, array_id, favourite_request, f
         show_dict['id'] = show['id']
         show_dict['overview'] = show['overview']
         show_dict['genres'] = (show['genre_ids'])
+        show_dict['vote'] = show['vote_average']
         if show['poster_path'] != None:
             show_dict['poster'] = get_poster(show['poster_path'])
         show_dict['type'] = "tvShow"
@@ -567,7 +569,7 @@ connection = dbManager.create_db_connection("localhost","root","","mymovies")
 #query = "delete from user_favourites"
 #dbManager.execute_query(connection, query)
 #print(dbManager.read_query(connection, "select username, aes_decrypt(password,'my_key'), name, surname, email, genres from user;"))
-print(dbManager.read_query(connection, "select * from user_favourites;"))
+print(dbManager.read_query(connection, "select * from user_favourite_tvshows;"))
 
 
         
