@@ -80,13 +80,15 @@ connection = db.create_db_connection("localhost","root","","mymovies")
 #print(res[0][0])
 
 #query = """
-#    create table if not exists user_favourite_tvshows (
+#    create table if not exists user_favourite_movies (
 #    user varchar(20) references user(username),
-#    tvshow_id int(15),
-#    primary key (user, tvshow_id)
+#   movie_id int(15),
+#    page int,
+#    primary key (user, movie_id)
 # );
 # """
 
-query = "delete from user_favourite_tvshows"
-db.execute_query(connection, query)
+#query = " insert into user_favourite_tvshows values ('sabrina',543,3)"
+#query = "drop table user_favourites"
+#db.execute_query(connection, query)
 #db.read_query(connection, "select * from user")
