@@ -80,13 +80,13 @@ connection = db.create_db_connection("localhost","root","","mymovies")
 #print(res[0][0])
 
 #query = """
-#    create table if not exists user_favourite_movies (
-#    user varchar(20) references user(username),
-#   movie_id int(15),
-#    page int,
-#    primary key (user, movie_id)
+#    create table if not exists user_favourite_tvshows (
+#   user varchar(20) references user(username),
+#    tvshow_id int(15),
+#    primary key (user, tvshow_id)
 # );
 # """
+
 
 #query = " insert into user_favourite_tvshows values ('sabrina',543,3)"
 #query = "drop table user_favourites"

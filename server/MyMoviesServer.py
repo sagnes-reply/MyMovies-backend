@@ -101,7 +101,7 @@ def user_profile():
 
 @app.route("/get_user_profile", methods = ["GET"])
 def get_user_profile():
-    print("----------------------------")
+    print("--------- GET USER PROFILE ---------------")
     try:
         username = request.args.get("username")
         query = "select aes_decrypt(password,'my_key'), email, name, surname, genres from user where username = '"+username+"';"
@@ -109,7 +109,6 @@ def get_user_profile():
         connection = dbManager.create_db_connection("localhost","root","","mymovies")
 
         profile = dbManager.read_query(connection, query)
-        print(profile)
         email = profile[0][1]
         name = profile[0][2]
         surname = profile[0][3]
@@ -176,8 +175,7 @@ def get_movies():
     lang = request.args.get("lang")
     page = request.args.get("page")
 
-    fav = get_favourites(username, True)
-    array_id = [item for sublist in fav.values() for item in sublist] 
+    array_id = get_favourites(username, True) 
     movies = []
     for i in range(1,int(page)+1):
         url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
@@ -188,7 +186,7 @@ def get_movies():
         }
         response = requests.get(url, headers=headers)
        
-        movies = create_movie_response(movies,response.json()['results'], array_id, i)
+        movies = create_movie_response(movies,response.json()['results'], array_id)
 
     more = int(page) <= response.json()['total_pages']
     response = {
@@ -197,7 +195,7 @@ def get_movies():
         }
     return jsonify(response)
 
-def create_movie_response(movies,raw_response, array_id, i):
+def create_movie_response(movies,raw_response, array_id):
     for movie in raw_response:
         movie_dict = dict()
         movie_dict['title'] = movie['title']
@@ -209,7 +207,6 @@ def create_movie_response(movies,raw_response, array_id, i):
         movie_dict['type'] = "movie"
         movie_dict['favourite'] = check_favourite(movie['id'], array_id)
         movie_dict['vote'] = movie['vote_average']
-        movie_dict['page'] = i
         movies.append(movie_dict)
     return movies
 
@@ -279,20 +276,12 @@ def get_poster(poster_url):
 def get_favourites(username, movies = True):
     connection = dbManager.create_db_connection("localhost","root","","mymovies")
     if movies:
-        query = "select movie_id, page from user_favourite_movies where user='"+username+"'"
+        query = "select movie_id from user_favourite_movies where user='"+username+"'"
     else:
-        query = "select tvshow_id, page from user_favourite_tvshows where user='"+username+"'"
+        query = "select tvshow_id from user_favourite_tvshows where user='"+username+"'"
     res = dbManager.read_query(connection, query) #[(693134],), (934632,), (940721,)]
-    # Creare un dizionario vuoto per memorizzare i risultati
-    favourites = {}
-    # Iterare attraverso ogni tupla nell'array
-    for item in res:
-        key = item[1]
-        value = item[0]
-        if key not in favourites:
-            favourites[key] = []
-        favourites[key].append(value)
-    return favourites
+    array_id = [tupla[0] for tupla in res] 
+    return array_id
 
 def check_favourite(movie_id, array_id):
     if movie_id in array_id:
@@ -307,14 +296,13 @@ def update_favourite_movies():
         print(request.get_json())
         username = request.get_json()['username']
         movie_id = str(request.get_json()['id'])
-        page = str(request.get_json()['page'])
-        print("-------- UPDATE FAVOURITES ---------")
+        print("-------- UPDATE FAVOURITE MOVIES ---------")
         query = "select * from user_favourite_movies where user = '"+username+"' and movie_id = '"+movie_id+"'"
         connection = dbManager.create_db_connection("localhost","root","","mymovies")
         res = dbManager.read_query(connection, query)
         #se non trovo righe con username,movie_id inserisco il movie_id preferito per username
         if len(res) == 0:
-            query = "insert into user_favourite_movies values('"+username+"',"+movie_id+","+page+");"
+            query = "insert into user_favourite_movies values('"+username+"',"+movie_id+");"
             dbManager.execute_query(connection, query)
             print(dbManager.read_query(connection, "select * from user_favourite_movies"))
             return jsonify(True), 200
@@ -338,8 +326,7 @@ def get_tv_shows():
     username = request.args.get("username")
     lang = request.args.get("lang")
     page = request.args.get("page")
-    fav = get_favourites(username, False)
-    array_id = [item for sublist in fav.values() for item in sublist] 
+    array_id = get_favourites(username, False)
     shows = []
     for i in range(1,int(page)+1):
         url = "https://api.themoviedb.org/3/discover/tv?include_adult=false&include_null_first_air_dates=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
@@ -349,7 +336,7 @@ def get_tv_shows():
             "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
         }
         response = requests.get(url, headers=headers)
-        shows = create_tv_shows_response(shows,response.json()['results'], array_id,i)
+        shows = create_tv_shows_response(shows,response.json()['results'], array_id)
         # Serializza l'array di film in JSON
     more = int(page) <= response.json()['total_pages']
     response = {
@@ -358,7 +345,7 @@ def get_tv_shows():
         }
     return jsonify(response)
 
-def create_tv_shows_response(shows, raw_response, array_id, page):
+def create_tv_shows_response(shows, raw_response, array_id):
     for show in raw_response:
         show_dict = dict()
         show_dict['title'] = show['original_name']
@@ -366,7 +353,6 @@ def create_tv_shows_response(shows, raw_response, array_id, page):
         show_dict['overview'] = show['overview']
         show_dict['genres'] = (show['genre_ids'])
         show_dict['vote'] = show['vote_average']
-        show_dict['page'] = page
         if show['poster_path'] != None:
             show_dict['poster'] = get_poster(show['poster_path'])
         show_dict['type'] = "tvShow"
@@ -379,14 +365,13 @@ def update_favourite_tvshows():
     try:
         username = request.get_json()['username']
         tvshow_id = str(request.get_json()['id'])
-        page = str(request.get_json()['page'])
-        print("-------- UPDATE FAVOURITES ---------")
+        print("-------- UPDATE FAVOURITE TV SHOWS ---------")
         query = "select * from user_favourite_tvshows where user = '"+username+"' and tvshow_id = '"+tvshow_id+"'"
         connection = dbManager.create_db_connection("localhost","root","","mymovies")
         res = dbManager.read_query(connection, query)
         #se non trovo righe con username,movie_id inserisco il movie_id preferito per username
         if len(res) == 0:
-            query = "insert into user_favourite_tvshows values('"+username+"',"+tvshow_id+","+page+");"
+            query = "insert into user_favourite_tvshows values('"+username+"',"+tvshow_id+");"
             dbManager.execute_query(connection, query)
             query = "select * from user_favourite_tvshows"
             print(dbManager.read_query(connection, query))
@@ -413,57 +398,51 @@ def get_favourite_items():
     types = ['movie', 'tv']
     items = []
     for type in types:
-
-        favourites_dict = get_favourites(username, type == 'movie')
-
-        for i in favourites_dict.keys():
-            url = "https://api.themoviedb.org/3/discover/"+type+"?include_adult=false&include_null_first_air_dates=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
+        favourites = get_favourites(username, type == 'movie')
+        for id in favourites:
+            url = "https://api.themoviedb.org/3/"+type+"/"+str(id)+"?language="+lang
 
             headers = {
                 "accept": "application/json",
                 "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjZmJlNDlmZTQyZDE2MjRiOTliYWZkMzZhNTJmZjEwZiIsInN1YiI6IjY2MzBjNDM4NWIyZjQ3MDEyODAzYjhmZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.bhhXiBgwizqz5K98QXxE984zx9fh6Am_aNKObE3wi4k"
             }
-            array_id = favourites_dict[i]
+      
             response = requests.get(url, headers=headers)
             if type == 'movie':
-                items = create_favourite_movie_response(items,response.json()['results'], array_id, i)
+                items = create_favourite_movie_response(items,response.json())
             else: 
-                items = create_favourite_tv_shows_response(items,response.json()['results'], array_id, i)
-      
+                items = create_favourite_tv_shows_response(items,response.json())
+       
     return jsonify(items)    
         
-def create_favourite_tv_shows_response(shows, raw_response, array_id, page):
-    for show in raw_response:
-        if check_favourite(show['id'], array_id):
-            show_dict = dict()
-            show_dict['title'] = show['original_name']
-            show_dict['id'] = show['id']
-            show_dict['overview'] = show['overview']
-            show_dict['genres'] = (show['genre_ids'])
-            show_dict['vote'] = show['vote_average']
-            show_dict['page'] = page
-            if show['poster_path'] != None:
-                show_dict['poster'] = get_poster(show['poster_path'])
-            show_dict['type'] = "tvShow"
-            show_dict['favourite'] = check_favourite(show['id'], array_id)
-            shows.append(show_dict)
+def create_favourite_tv_shows_response(shows, show):
+    show_dict = dict()
+    show_dict['title'] = show['original_name']
+    show_dict['id'] = show['id']
+    show_dict['overview'] = show['overview']
+    show_dict['genres'] = [genre['id'] for genre in show['genres']]
+    print("show['genres']:", show['genres'])
+    print("genres", show_dict['genres'])
+    show_dict['vote'] = show['vote_average']
+    if show['poster_path'] != None:
+        show_dict['poster'] = get_poster(show['poster_path'])
+    show_dict['type'] = "tvShow"
+    show_dict['favourite'] = True
+    shows.append(show_dict)
     return shows
 
-def create_favourite_movie_response(movies,raw_response, array_id, page):
-    for movie in raw_response:
-        if check_favourite(movie['id'], array_id):
-            movie_dict = dict()
-            movie_dict['title'] = movie['title']
-            movie_dict['id'] = movie['id']
-            movie_dict['overview'] = movie['overview']
-            movie_dict['genres'] = (movie['genre_ids'])
-            movie_dict['releaseDate'] = convert_date(movie['release_date'])
-            movie_dict['poster'] = get_poster(movie['poster_path'])
-            movie_dict['type'] = "movie"
-            movie_dict['favourite'] = check_favourite(movie['id'], array_id)
-            movie_dict['vote'] = movie['vote_average']
-            movie_dict['page'] = page
-            movies.append(movie_dict)
+def create_favourite_movie_response(movies,movie):
+    movie_dict = dict()
+    movie_dict['title'] = movie['original_title']
+    movie_dict['id'] = movie['id']
+    movie_dict['overview'] = movie['overview']
+    movie_dict['genres'] = [genre['id'] for genre in movie['genres']]
+    movie_dict['releaseDate'] = convert_date(movie['release_date'])
+    movie_dict['poster'] = get_poster(movie['poster_path'])
+    movie_dict['type'] = "movie"
+    movie_dict['favourite'] = True
+    movie_dict['vote'] = movie['vote_average']
+    movies.append(movie_dict)
     return movies
 
 @app.route("/get_tv_shows_genres", methods = ["GET"])
