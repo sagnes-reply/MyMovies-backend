@@ -174,11 +174,12 @@ def get_movies():
     username = request.args.get("username")
     lang = request.args.get("lang")
     page = request.args.get("page")
-
+    sorting = request.args.get("sorting")
+    print("🍿🍿🍿🍿🍿🍿🍿🍿", sorting)
     array_id = get_favourites(username, True) 
     movies = []
     for i in range(1,int(page)+1):
-        url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
+        url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language="+lang+"&page="+str(i)+"&sort_by="+sorting
 
         headers = {
             "accept": "application/json",
@@ -201,12 +202,16 @@ def create_movie_response(movies,raw_response, array_id):
         movie_dict['title'] = movie['title']
         movie_dict['id'] = movie['id']
         movie_dict['overview'] = movie['overview']
-        movie_dict['genres'] = (movie['genre_ids'])
-        movie_dict['releaseDate'] = convert_date(movie['release_date'])
-        movie_dict['poster'] = get_poster(movie['poster_path'])
+        if 'genre_ids' in movie:
+            movie_dict['genres'] = (movie['genre_ids'])
+        if 'release_date' in movie and movie['release_date'] != None and movie['release_date'] != "":
+            movie_dict['releaseDate'] = convert_date(movie['release_date'])
+        if movie['poster_path'] != None:
+            movie_dict['poster'] = get_poster(movie['poster_path'])
         movie_dict['type'] = "movie"
         movie_dict['favourite'] = check_favourite(movie['id'], array_id)
-        movie_dict['vote'] = movie['vote_average']
+        if 'vote_average' in movie:
+            movie_dict['vote'] = movie['vote_average']
         movies.append(movie_dict)
     return movies
 
@@ -326,10 +331,11 @@ def get_tv_shows():
     username = request.args.get("username")
     lang = request.args.get("lang")
     page = request.args.get("page")
+    sorting = request.args.get("sorting")
     array_id = get_favourites(username, False)
     shows = []
     for i in range(1,int(page)+1):
-        url = "https://api.themoviedb.org/3/discover/tv?include_adult=false&include_null_first_air_dates=false&language="+lang+"&page="+str(i)+"&sort_by=popularity.desc"
+        url = "https://api.themoviedb.org/3/discover/tv?include_adult=false&include_null_first_air_dates=false&language="+lang+"&page="+str(i)+"&sort_by="+sorting
 
         headers = {
             "accept": "application/json",
@@ -353,6 +359,8 @@ def create_tv_shows_response(shows, raw_response, array_id):
         show_dict['overview'] = show['overview']
         show_dict['genres'] = (show['genre_ids'])
         show_dict['vote'] = show['vote_average']
+        if show['first_air_date'] != "" and show['first_air_date'] != None:
+            show_dict['releaseDate'] = convert_date(show['first_air_date'])
         if show['poster_path'] != None:
             show_dict['poster'] = get_poster(show['poster_path'])
         show_dict['type'] = "tvShow"
@@ -421,9 +429,8 @@ def create_favourite_tv_shows_response(shows, show):
     show_dict['id'] = show['id']
     show_dict['overview'] = show['overview']
     show_dict['genres'] = [genre['id'] for genre in show['genres']]
-    print("show['genres']:", show['genres'])
-    print("genres", show_dict['genres'])
     show_dict['vote'] = show['vote_average']
+    show_dict['releaseDate'] = show['first_air_date']
     if show['poster_path'] != None:
         show_dict['poster'] = get_poster(show['poster_path'])
     show_dict['type'] = "tvShow"
@@ -438,7 +445,8 @@ def create_favourite_movie_response(movies,movie):
     movie_dict['overview'] = movie['overview']
     movie_dict['genres'] = [genre['id'] for genre in movie['genres']]
     movie_dict['releaseDate'] = convert_date(movie['release_date'])
-    movie_dict['poster'] = get_poster(movie['poster_path'])
+    if movie['poster_path'] != None:
+        movie_dict['poster'] = get_poster(movie['poster_path'])
     movie_dict['type'] = "movie"
     movie_dict['favourite'] = True
     movie_dict['vote'] = movie['vote_average']

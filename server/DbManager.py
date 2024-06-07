@@ -38,7 +38,7 @@ class DbManager:
                 passwd=user_password,
                 database=db_name
             )
-            #print("MySQL Database connection successful")
+            print("MySQL Database connection successful")
         except Error as err:
             print(f"Error: '{err}'")
 
@@ -48,7 +48,7 @@ class DbManager:
         cursor = connection.cursor()
         cursor.execute(query)
         connection.commit()
-        #print("Query successful")
+        print("Query successful")
 
     def read_query(self, connection, query):
         cursor = connection.cursor()
@@ -59,36 +59,49 @@ class DbManager:
        
     
 
+def createDB():
 
-db = DbManager()
-#connection = db.create_server_connection("localhost", "root", "")
+    db = DbManager()
+    connection = db.create_server_connection("localhost", "root", "")
 
-# query = "create database if not exists mymovies"
-# db.create_database(connection, query)
-# # ------ creating tables ----------
-# user_table_query = """
-# create table if not exists user (
-#     username varchar(20) primary key,
-#     password varchar(20) not null
-# );
-# """
+    query = "create database if not exists mymovies"
+    db.create_database(connection, query)
+    #------ creating tables ----------
+    user_table_query = """
+     create table if not exists user (
+         username varchar(20) primary key,
+         password varchar(20) not null,
+         email varchar(40),
+         name varchar(20),
+         surname varchar(20),
+         genres varchar(100)
+     );
+     """
 
-connection = db.create_db_connection("localhost","root","","mymovies")
-#print(db.read_query(connection, "select * from user;"))
-#db.execute_query(connection, "insert into user values ('Sabrina', aes_encrypt('1234','my_key'), 'sabrina@gmail.it', 'Sabrina', 'Agnes', 'Comedy,');")
-#res = db.read_query(connection, query = "select aes_decrypt(password,'my_key'), email, name, surname, genres from user where username = 'Sabrina';")
-#print(res[0][0])
+    connection = db.create_db_connection("localhost","root","","mymovies")
+    db.execute_query(connection,user_table_query)
 
-#query = """
-#    create table if not exists user_favourite_tvshows (
-#   user varchar(20) references user(username),
-#    tvshow_id int(15),
-#    primary key (user, tvshow_id)
-# );
-# """
+    query = """
+        create table if not exists user_favourite_tvshows (
+       user varchar(20) references user(username),
+        tvshow_id int(15),
+        primary key (user, tvshow_id)
+     );
+     """
+    db.execute_query(connection, query)
 
+    query = """
+        create table if not exists user_favourite_movies (
+        user varchar(20) references user(username),
+        movie_id int(15),
+        primary key (user, movie_id)
+     );
+     """
+    db.execute_query(connection, query)
+    db.read_query(connection, "select * from user")
 
-#query = " insert into user_favourite_tvshows values ('sabrina',543,3)"
-#query = "drop table user_favourites"
-#db.execute_query(connection, query)
-#db.read_query(connection, "select * from user")
+def main():
+    createDB()
+
+if __name__ == "__main__":
+    main()
